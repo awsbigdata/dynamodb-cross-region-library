@@ -18,6 +18,8 @@ import java.util.UUID;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
@@ -25,10 +27,7 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatchClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreams;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreamsClientBuilder;
+import com.amazonaws.services.dynamodbv2.*;
 import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.dynamodbv2.streamsadapter.AmazonDynamoDBStreamsAdapterClient;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream;
@@ -108,6 +107,9 @@ public class CommandLineInterface {
     private final boolean isPublishCloudWatch;
     private final String taskName;
     private final String destinationTable;
+    private final String destination_Acesskey;
+    private final String destination_SecretKey;
+
     private final Optional<Long> parentShardPollIntervalMillis;
 
     @VisibleForTesting
@@ -131,6 +133,8 @@ public class CommandLineInterface {
         destinationRegion = RegionUtils.getRegion(params.getDestinationSigningRegion());
         destinationDynamodbEndpoint = Optional.fromNullable(params.getDestinationEndpoint());
         destinationTable = params.getDestinationTable();
+        destination_Acesskey=params.getDestinationTable_Accesskey();
+        destination_SecretKey=params.getDestinationTable_SecretKey();
 
         // other crr parameters
         getRecordsLimit = Optional.fromNullable(params.getBatchSize());
@@ -171,6 +175,10 @@ public class CommandLineInterface {
         Preconditions.checkArgument(streamArn != null, DynamoDBConnectorConstants.MSG_NO_STREAMS_FOUND);
         Preconditions.checkState(streamEnabled, DynamoDBConnectorConstants.STREAM_NOT_READY);
 
+
+        final AWSCredentialsProvider descredentialsProvider=new
+                AWSStaticCredentialsProvider(new BasicAWSCredentials(destination_Acesskey,destination_SecretKey));
+
         // initialize DynamoDB client for KCL
         final AmazonDynamoDB kclDynamoDBClient = AmazonDynamoDBClientBuilder.standard()
                 .withCredentials(credentialsProvider)
@@ -205,7 +213,7 @@ public class CommandLineInterface {
         // create the record processor factory based on given pipeline and connector configurations
         // use the master to replicas pipeline
         final KinesisConnectorRecordProcessorFactory<Record, Record> factory = new KinesisConnectorRecordProcessorFactory<>(
-                new DynamoDBMasterToReplicasPipeline(), new DynamoDBStreamsConnectorConfiguration(properties, credentialsProvider));
+                new DynamoDBMasterToReplicasPipeline(descredentialsProvider), new DynamoDBStreamsConnectorConfiguration(properties, credentialsProvider));
 
         // create the KCL configuration with default values
         final KinesisClientLibConfiguration kclConfig = new KinesisClientLibConfiguration(actualTaskName,

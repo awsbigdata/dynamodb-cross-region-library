@@ -30,6 +30,7 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.auth.AWSCredentialsProviderChain;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.regions.Region;
@@ -131,7 +132,21 @@ public class DynamoDBReplicationEmitter implements IEmitter<Record> {
     @Deprecated
     public DynamoDBReplicationEmitter(final DynamoDBStreamsConnectorConfiguration configuration) {
         this(configuration.APP_NAME, configuration.DYNAMODB_ENDPOINT, configuration.REGION_NAME, configuration.DYNAMODB_DATA_TABLE_NAME,
-            (AmazonCloudWatchAsync) new AmazonCloudWatchAsyncClient(new DefaultAWSCredentialsProviderChain(), Executors.newFixedThreadPool(MAX_THREADS)).withRegion(Regions.getCurrentRegion() == null ? Region.getRegion(Regions.US_EAST_1) : Regions.getCurrentRegion()), new DefaultAWSCredentialsProviderChain());
+                (AmazonCloudWatchAsync) new AmazonCloudWatchAsyncClient(new DefaultAWSCredentialsProviderChain(), Executors.newFixedThreadPool(MAX_THREADS)).withRegion(Regions.getCurrentRegion() == null ? Region.getRegion(Regions.US_EAST_1) : Regions.getCurrentRegion()), new DefaultAWSCredentialsProviderChain());
+    }
+
+
+    /**
+     * Constructor with default CloudWatch client and default DynamoDBAsync.
+     *
+     * @param configuration
+     *            The configuration for this emitter.
+     * @deprecated Deprecated by {@link #DynamoDBReplicationEmitter(DynamoDBStreamsConnectorConfiguration, AmazonDynamoDBAsync, AmazonCloudWatchAsync)}
+     */
+    @Deprecated
+    public DynamoDBReplicationEmitter(final DynamoDBStreamsConnectorConfiguration configuration, AWSCredentialsProvider destinationdynamodbCredentialsProvider) {
+        this(configuration.APP_NAME, configuration.DYNAMODB_ENDPOINT, configuration.REGION_NAME, configuration.DYNAMODB_DATA_TABLE_NAME,
+                (AmazonCloudWatchAsync) new AmazonCloudWatchAsyncClient(new DefaultAWSCredentialsProviderChain(), Executors.newFixedThreadPool(MAX_THREADS)).withRegion(Regions.getCurrentRegion() == null ? Region.getRegion(Regions.US_EAST_1) : Regions.getCurrentRegion()), destinationdynamodbCredentialsProvider);
     }
 
     /**
@@ -278,21 +293,21 @@ public class DynamoDBReplicationEmitter implements IEmitter<Record> {
                 // Generate the request based on the record
                 AmazonWebServiceRequest request = createRequest(record);
                 if (request == null) { // Should only happen if DynamoDB Streams API updates to support different operations
-                                       // than {INSERT, MODIFY, REMOVE}.
+                    // than {INSERT, MODIFY, REMOVE}.
                     continue;
                 }
                 // Submit the write request based on its type
                 if (request instanceof PutItemRequest) { // PUT
                     getDynamodb().putItemAsync((PutItemRequest) request,
-                        (AsyncHandler<PutItemRequest, PutItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
+                            (AsyncHandler<PutItemRequest, PutItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
                 } else if (request instanceof DeleteItemRequest) { // DELETE
                     getDynamodb().deleteItemAsync((DeleteItemRequest) request,
-                        (AsyncHandler<DeleteItemRequest, DeleteItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
+                            (AsyncHandler<DeleteItemRequest, DeleteItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
                 } else if (request instanceof UpdateItemRequest) { // UPDATE
                     getDynamodb().updateItemAsync((UpdateItemRequest) request,
-                        (AsyncHandler<UpdateItemRequest, UpdateItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
+                            (AsyncHandler<UpdateItemRequest, UpdateItemResult>) getHandler(toSubmit, failedRecords, retryCount, doneSignal, record));
                 } else { // Should only happen if DynamoDB allows a new operation other than {PutItem, DeleteItem,
-                         // UpdateItem} for single item writes.
+                    // UpdateItem} for single item writes.
                     log.warn("Unsupported DynamoDB request: " + request);
                 }
             }
@@ -304,7 +319,7 @@ public class DynamoDBReplicationEmitter implements IEmitter<Record> {
         emitCloudWatchMetrics(records, failedRecords, retryCount);
         if (!records.isEmpty()) {
             log.debug("Successfully emitted " + (records.size() - failedRecords.size()) + " records ending with sequence number "
-                + buffer.getLastSequenceNumber());
+                    + buffer.getLastSequenceNumber());
         } else {
             log.debug("No records to emit");
         }
@@ -444,7 +459,7 @@ public class DynamoDBReplicationEmitter implements IEmitter<Record> {
         if (null != cloudwatch) {
             final double failed = records.size();
             final MetricDatum recordsProcessedFailedDatum = new MetricDatum().withMetricName(RECORDS_FAILED).withValue(failed).withUnit(StandardUnit.Count)
-                .withTimestamp(new Date());
+                    .withTimestamp(new Date());
             final PutMetricDataRequest request = new PutMetricDataRequest().withNamespace(applicationName).withMetricData(recordsProcessedFailedDatum);
             cloudwatch.putMetricDataAsync(request);
         }

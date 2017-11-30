@@ -13,6 +13,11 @@
  */
 package com.amazonaws.services.dynamodbv2.streams.connectors;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchAsync;
+import com.amazonaws.services.cloudwatch.AmazonCloudWatchAsyncClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClient;
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBAsyncClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.Record;
 import com.amazonaws.services.kinesis.connectors.KinesisConnectorConfiguration;
 import com.amazonaws.services.kinesis.connectors.impl.AllPassFilter;
@@ -34,10 +39,20 @@ import com.amazonaws.services.kinesis.connectors.interfaces.ITransformer;
 
 public class DynamoDBMasterToReplicasPipeline implements IKinesisConnectorPipeline<Record, Record> {
 
+    private AWSCredentialsProvider awsCredentialsProvider;
+
+
+    public DynamoDBMasterToReplicasPipeline(){
+    }
+
+    public DynamoDBMasterToReplicasPipeline(AWSCredentialsProvider  awsCredentialsProvider){
+        this.awsCredentialsProvider=awsCredentialsProvider;
+    }
+
     @Override
     public IEmitter<Record> getEmitter(final KinesisConnectorConfiguration configuration) {
         if (configuration instanceof DynamoDBStreamsConnectorConfiguration) {
-            return new DynamoDBReplicationEmitter((DynamoDBStreamsConnectorConfiguration) configuration);
+            return new DynamoDBReplicationEmitter((DynamoDBStreamsConnectorConfiguration) configuration,awsCredentialsProvider);
         } else {
             throw new IllegalArgumentException(this + " needs a DynamoDBStreamsConnectorConfiguration argument.");
         }

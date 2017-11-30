@@ -79,4 +79,16 @@ public class CommandLineArgs {
             description = "Wait for this long between polls to check if parent shards are done",
             hidden = true)
     private Long parentShardPollIntervalMillis;
+
+
+    public static final String DESTINATION_TABLE_ACCESSKEY = "--destinationTable_Accesskey";
+    @Parameter(names = DESTINATION_TABLE_ACCESSKEY, description = "Name of the destination Accesskey", required = true)
+    private String destinationTable_Accesskey;
+
+    public static final String DESTINATION_TABLE_SECRETKEY = "--destinationTable_Secretkey";
+    @Parameter(names = DESTINATION_TABLE_SECRETKEY, description = "Name of the destination SecretKey", required = true)
+    private String destinationTable_SecretKey;
+
+
+
 }
